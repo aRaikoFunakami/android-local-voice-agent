@@ -1,0 +1,28 @@
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+.cxx/
+captures/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Native build artifacts (受け渡しは scripts 経由、リポジトリに含めない)
+*.so
+*.a
+
+# Models (初回配置方式、リポジトリに含めない)
+models/
+*.onnx
+*.litertlm
+*.task
+
+# Debug audio dumps
+*.pcm
+*.wav
+!docs/evidence/**/*.wav
