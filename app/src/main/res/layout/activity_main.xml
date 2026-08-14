@@ -39,6 +39,13 @@
             android:layout_height="wrap_content"
             android:enabled="false"
             android:text="送信" />
+
+        <!-- TTS デバッグ (Issue #19): 入力文を WAV 合成（再生は Issue #20） -->
+        <Button
+            android:id="@+id/ttsSynth"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="TTS" />
     </LinearLayout>
 
     <TextView

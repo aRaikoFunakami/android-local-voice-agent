@@ -7,6 +7,10 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
+import com.example.localvoiceagent.tts.AudioSink
+import com.example.localvoiceagent.tts.SupertonicTts
+import com.example.localvoiceagent.tts.WavWriter
+import java.io.File
 import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
@@ -43,6 +47,43 @@ class MainActivity : Activity() {
         }
         // 自動テスト用: adb shell am start ... --es prompt "..." で日本語プロンプトを注入
         intent.getStringExtra("prompt")?.let { pendingPrompt = it }
+
+        // TTS デバッグ (Issue #19): 入力文を WAV へ合成。--es tts "..." でも起動可
+        findViewById<Button>(R.id.ttsSynth).setOnClickListener {
+            val text = llmInput.text.toString().trim().ifEmpty { return@setOnClickListener }
+            synthesizeToWav(text)
+        }
+        intent.getStringExtra("tts")?.let { synthesizeToWav(it) }
+    }
+
+    private val ttsEngine by lazy { SupertonicTts() }
+
+    private fun synthesizeToWav(text: String) {
+        if (!SupertonicTts.modelAvailable()) {
+            llmStatus.text = "TTS: モデル未配置（scripts/fetch_supertonic.sh を実行）"
+            return
+        }
+        llmStatus.text = "TTS: 合成中…"
+        val t0 = System.currentTimeMillis()
+        inferenceWorker.execute {
+            val result = runCatching {
+                var info = ""
+                ttsEngine.synthesize(text, object : AudioSink {
+                    override fun onAudio(samples: ShortArray, sampleRate: Int, channels: Int) {
+                        val out = File(getExternalFilesDir(null), "tts_debug.wav")
+                        WavWriter.write(out, samples, sampleRate, channels)
+                        val durMs = samples.size * 1000L / sampleRate
+                        val rtf = (System.currentTimeMillis() - t0).toFloat() / durMs
+                        info = "TTS: ${durMs}ms audio, ${sampleRate}Hz, RTF %.2f → ${out.name}".format(rtf)
+                    }
+                    override fun onEnd() {}
+                })
+                info
+            }
+            runOnUiThread {
+                llmStatus.text = result.getOrElse { "TTS: 失敗 $it" }
+            }
+        }
     }
 
     private var pendingPrompt: String? = null
