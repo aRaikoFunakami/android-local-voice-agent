@@ -17,4 +17,47 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:textSize="14sp" />
+
+    <!-- LLM デバッグ UI (Issue #21): テキスト入力 → Gemma 応答表示 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:orientation="horizontal">
+
+        <EditText
+            android:id="@+id/llmInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="LLM への質問（日本語）"
+            android:inputType="text" />
+
+        <Button
+            android:id="@+id/llmSend"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:text="送信" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/llmStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textSize="12sp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp">
+
+        <TextView
+            android:id="@+id/llmResponse"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp" />
+    </ScrollView>
 </LinearLayout>
