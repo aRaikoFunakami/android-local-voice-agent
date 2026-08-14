@@ -10,7 +10,16 @@
 | 開発ブランチ | `local-audio`（`release-7300` 起点、追加は `local_audio/` のみ） |
 | 記録日 | 2026-08-14 |
 
-NDK バージョン / gn args / コンパイラバージョンは Issue #4（gclient checkout 疎通）完了時に追記する。
+## ビルド環境実測値（Issue #4、2026-08-14）
+
+| 項目 | 値 |
+|---|---|
+| ホスト | x86_64 Linux コンテナ（Colima vz+Rosetta on Apple Silicon） |
+| Android toolchain (NDK) | CIPD instance `KXOia11cm9lVdUdPlbGLu8sCz6Y4ey_HV2s8_8qeqhgC`（DEPS 固定、`third_party/android_toolchain`） |
+| コンパイラ | clang 21.0.0git (`bd809ffb4b5f`, Chromium prebuilt Linux_x64) |
+| gn args | `target_os="android" target_cpu="arm64" is_debug=false rtc_include_tests=false rtc_build_examples=false rtc_enable_protobuf=false android_static_analysis="off"` |
+| 検証 | `ninja -C out/android_arm64 modules/audio_processing` 成功（1243 targets、`libaudio_processing.a` 生成） |
+| checkout サイズ | 約 17GB（`--no-history`） |
 
 ## ブランチ運用ルール
 
