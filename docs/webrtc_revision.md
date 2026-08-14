@@ -25,7 +25,7 @@
 
 - `main`: upstream main のミラー。直接コミット禁止。定期 fetch → push のみ。
 - `release-7300`: upstream リリースブランチのミラー。直接コミット禁止。
-- `local-audio`: 唯一の開発ブランチ。**upstream ファイルの変更禁止**、追加は `local_audio/` ディレクトリのみ。GN/ninja はツリー内任意の BUILD.gn をパス指定でビルドできるため、トップレベル BUILD.gn の変更も不要。
+- `local-audio`: 唯一の開発ブランチ。追加は `local_audio/` ディレクトリ + **ルート BUILD.gn の is_android ガード 4 行のみ**（GN はルートから参照されない BUILD.gn をビルドグラフに載せないため、当初方針の「トップレベル BUILD.gn 変更不要」は誤りと実測で判明。fork PR #1 参照）。それ以外の upstream ファイル変更は禁止。
 - **WebRTC main HEAD を version 固定せず依存することを禁止する**（開発計画 §19）。
 
 ## revision 更新手順
