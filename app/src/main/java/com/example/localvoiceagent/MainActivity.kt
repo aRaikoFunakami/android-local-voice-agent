@@ -9,6 +9,7 @@ import android.widget.EditText
 import android.widget.TextView
 import com.example.localvoiceagent.audio.CapturePipeline
 import com.example.localvoiceagent.audio.RenderPipeline
+import com.example.localvoiceagent.stt.SenseVoiceRecognizer
 import com.example.localvoiceagent.tts.AudioSink
 import com.example.localvoiceagent.tts.SupertonicTts
 import com.example.localvoiceagent.tts.WavWriter
