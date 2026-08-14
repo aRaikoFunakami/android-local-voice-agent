@@ -69,10 +69,36 @@ class MainActivity : Activity() {
         // Render テスト (Issue #14)。--ez render true で自動起動
         findViewById<Button>(R.id.renderToggle).setOnClickListener { toggleRender() }
         if (intent.getBooleanExtra("render", false)) toggleRender()
+
+        // Loopback (Issue #15): capture→APM→AudioTrack。--ez loopback true で自動起動。
+        // stream delay は定数埋め込み禁止（計画 §7）: --ei delay N または UI から設定
+        findViewById<Button>(R.id.loopbackToggle).setOnClickListener { toggleLoopback() }
+        val delayMs = intent.getIntExtra("delay", 0)
+        if (delayMs > 0) capture.setStreamDelayMs(delayMs)
+        findViewById<EditText>(R.id.delayInput).setOnEditorActionListener { v, _, _ ->
+            v.text.toString().toIntOrNull()?.let { capture.setStreamDelayMs(it) }
+            true
+        }
+        if (intent.getBooleanExtra("loopback", false)) toggleLoopback()
         statsTicker()
     }
 
-    private val capture = CapturePipeline()
+    // Loopback (Issue #15): capture の clean PCM を render へ回すモニタ経路。
+    // debug モードのため frame ごとの ByteArray copy を許容（容量 8 で古い frame から破棄）
+    @Volatile private var loopback = false
+    private val loopQueue = java.util.concurrent.ArrayBlockingQueue<ByteArray>(8)
+    val loopDropped = java.util.concurrent.atomic.AtomicLong()
+
+    private val capture = CapturePipeline(onCleanFrame = { buf ->
+        if (loopback) {
+            val copy = ByteArray(LocalAudioEngine.FRAME_BYTES)
+            buf.position(0); buf.get(copy)
+            while (!loopQueue.offer(copy)) {
+                loopQueue.poll()
+                loopDropped.incrementAndGet()
+            }
+        }
+    })
     private var capturing = false
 
     // Render テスト (Issue #14): 440Hz トーンを AEC 参照経由で再生
@@ -84,12 +110,17 @@ class MainActivity : Activity() {
             if (capturing) capture.engineHandle() else renderEngineHandle
         },
         fillFrame = { buf ->
-            val step = 2.0 * Math.PI * 440.0 / LocalAudioEngine.SAMPLE_RATE
-            for (i in 0 until LocalAudioEngine.FRAME_SAMPLES) {
-                buf.putShort(i * 2, (6000 * Math.sin(tonePhase)).toInt().toShort())
-                tonePhase += step
+            if (loopback) {
+                val f = loopQueue.poll()
+                if (f != null) { buf.position(0); buf.put(f); true } else false
+            } else {
+                val step = 2.0 * Math.PI * 440.0 / LocalAudioEngine.SAMPLE_RATE
+                for (i in 0 until LocalAudioEngine.FRAME_SAMPLES) {
+                    buf.putShort(i * 2, (6000 * Math.sin(tonePhase)).toInt().toShort())
+                    tonePhase += step
+                }
+                true
             }
-            true
         },
     )
 
@@ -112,6 +143,25 @@ class MainActivity : Activity() {
                 renderEngineHandle = 0L
             }
             btn.text = "Render 開始"
+        }
+    }
+
+    private fun toggleLoopback() {
+        val btn = findViewById<Button>(R.id.loopbackToggle)
+        if (!loopback) {
+            loopback = true
+            if (!capturing) toggleCapture()
+            if (!rendering) {
+                rendering = render.start()  // capture の engine を共有（二重 AEC なし）
+            }
+            intent.getIntExtra("delay", 0).let { if (it > 0) capture.setStreamDelayMs(it) }
+            btn.text = "Loopback 停止"
+        } else {
+            loopback = false
+            if (rendering) { render.stop(); rendering = false }
+            if (capturing) toggleCapture()
+            loopQueue.clear()
+            btn.text = "Loopback 開始"
         }
     }
 
