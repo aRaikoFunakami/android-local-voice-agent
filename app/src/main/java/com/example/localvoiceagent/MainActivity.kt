@@ -60,6 +60,9 @@ class MainActivity : Activity() {
         intent.getStringExtra("tts")?.let { synthesizeToWav(it) }
         // TTS 再生 (Issue #20)
         intent.getStringExtra("say")?.let { say(it) }
+        // 会話ループ (Issue #22)。--ez convo true で自動開始（LLM ready 後）
+        findViewById<Button>(R.id.convoToggle).setOnClickListener { toggleConversation() }
+        if (intent.getBooleanExtra("convo", false)) pendingConvo = true
 
         // Capture パイプライン (Issue #13)。--ez capture true --ez dump true で自動起動
         val captureToggle = findViewById<Button>(R.id.captureToggle)
@@ -101,6 +104,9 @@ class MainActivity : Activity() {
     // エミュレータにはスピーカー→マイクの音響経路がないため、AEC 配管の ERLE を
     // 机上で測るための注入器。実機評価では使わない（--ez echosim true で有効化）。
     @Volatile private var echoSim = false
+    // near-end 注入 (Issue #22 検証): ユーザー発話をマイク経路（APM 前）に混合する。
+    // capture 稼働中の injectwav はこちらを使い、実経路（APM→STT）を通す
+    private val nearEndQueue = java.util.concurrent.ArrayBlockingQueue<ShortArray>(2000)
     @Volatile private var echoGain = 0.5f
     private var echoDelayFrames = 2  // 20ms 相当
     private val echoRing = java.util.concurrent.ArrayBlockingQueue<ShortArray>(64)
@@ -116,12 +122,19 @@ class MainActivity : Activity() {
     private val stt by lazy {
         SenseVoiceRecognizer().also { r ->
             r.onFinalResult = { text ->
+                android.util.Log.i("VoiceAgent", "stt-final: $text")
                 runOnUiThread { llmResponse.append("STT: $text\n") }
             }
         }
     }
 
     private val capture = CapturePipeline(preProcess = { buf ->
+        nearEndQueue.poll()?.let { user ->
+            for (i in 0 until LocalAudioEngine.FRAME_SAMPLES) {
+                val mixed = buf.getShort(i * 2) + user[i]
+                buf.putShort(i * 2, mixed.coerceIn(-32768, 32767).toShort())
+            }
+        }
         if (echoSim && echoRing.size >= echoDelayFrames) {
             val echo = echoRing.poll()
             if (echo != null) {
@@ -233,6 +246,7 @@ class MainActivity : Activity() {
         }
         sttEnabled = true
         Thread({
+            android.util.Log.i("VoiceAgent", "inject: $path capturing=$capturing")
             val bytes = File(path).readBytes()
             var off = 44  // WAV ヘッダをスキップ（44 byte 固定形式前提の debug 用）
             val frame = ShortArray(LocalAudioEngine.FRAME_SAMPLES)
@@ -242,13 +256,19 @@ class MainActivity : Activity() {
                     val hi = bytes[off + i * 2 + 1].toInt()
                     frame[i] = ((hi shl 8) or lo).toShort()
                 }
-                stt.acceptAudio(frame.copyOf(), LocalAudioEngine.SAMPLE_RATE)
+                if (capturing) {
+                    nearEndQueue.put(frame.copyOf())  // マイク経路（APM 前）へ混合
+                } else {
+                    stt.acceptAudio(frame.copyOf(), LocalAudioEngine.SAMPLE_RATE)
+                    Thread.sleep(10)  // 実時間ペース（stt 直結時のみ）
+                }
                 off += LocalAudioEngine.FRAME_BYTES
-                Thread.sleep(10)  // 実時間ペース
             }
-            // 末尾無音で VAD を閉じる
-            val silence = ShortArray(LocalAudioEngine.FRAME_SAMPLES)
-            repeat(100) { stt.acceptAudio(silence, LocalAudioEngine.SAMPLE_RATE); Thread.sleep(10) }
+            if (!capturing) {
+                // 末尾無音で VAD を閉じる（capture 稼働時は実マイクの無音が続くため不要）
+                val silence = ShortArray(LocalAudioEngine.FRAME_SAMPLES)
+                repeat(100) { stt.acceptAudio(silence, LocalAudioEngine.SAMPLE_RATE); Thread.sleep(10) }
+            }
         }, "wav-inject").start()
     }
 
@@ -306,6 +326,44 @@ class MainActivity : Activity() {
     // TTS render 統合 (Issue #20): TTS → 48k resample → framing → processRender + AudioTrack
     private val ttsPlayer by lazy { TtsPlayer(ttsEngine) }
 
+    // 会話ループ (Issue #22)
+    private lateinit var controllerRef: ConversationController
+    private val controller: ConversationController by lazy {
+        ConversationController(stt, llm, ttsPlayer) { st, line ->
+            android.util.Log.i("VoiceAgent", "state=$st ${line ?: ""}")
+            runOnUiThread {
+                findViewById<TextView>(R.id.convoState).text =
+                    "state=$st barge-in=${controllerRef.bargeInCount.get()}"
+                line?.let { llmResponse.append("$it\n") }
+            }
+        }.also { controllerRef = it }
+    }
+    private var convoRunning = false
+
+    private fun toggleConversation() {
+        val btn = findViewById<Button>(R.id.convoToggle)
+        if (!convoRunning) {
+            if (!LlmEngine.modelAvailable() || !com.example.localvoiceagent.stt.SenseVoiceRecognizer.modelAvailable() ||
+                !SupertonicTts.modelAvailable()) {
+                llmStatus.text = "会話: モデル未配置（gemma/stt/supertonic を push）"
+                return
+            }
+            convoRunning = true
+            sttEnabled = true
+            if (!capturing) toggleCapture()
+            if (!rendering) toggleRender()
+            controller.start()
+            btn.text = "会話停止"
+        } else {
+            convoRunning = false
+            controller.stop()
+            sttEnabled = false
+            if (rendering) { render.stop(); rendering = false }
+            if (capturing) toggleCapture()
+            btn.text = "会話開始"
+        }
+    }
+
     /** render 経路を確保して text を発話する。--es say "..." で自動実行 */
     private fun say(text: String) {
         if (!SupertonicTts.modelAvailable()) {
@@ -351,6 +409,7 @@ class MainActivity : Activity() {
     }
 
     private var pendingPrompt: String? = null
+    private var pendingConvo = false
 
     private fun sendToLlm(prompt: String) {
         llmSend.isEnabled = false
@@ -382,11 +441,18 @@ class MainActivity : Activity() {
                     llmStatus.text = "LLM: ready (Gemma 4 E2B, load ${elapsed}ms)"
                     llmSend.isEnabled = true
                     pendingPrompt?.let { p -> pendingPrompt = null; sendToLlm(p) }
+                    if (pendingConvo) { pendingConvo = false; toggleConversation() }
                 } else {
                     llmStatus.text = "LLM: 初期化失敗 ${result.exceptionOrNull()}"
                 }
             }
         }
+    }
+
+    // 実行中の会話へ音声を注入するテスト経路（--activity-single-top で onNewIntent 配送）
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra("injectwav")?.let { injectWav(it) }
     }
 
     override fun onDestroy() {
