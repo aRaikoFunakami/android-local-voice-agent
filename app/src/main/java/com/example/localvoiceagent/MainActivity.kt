@@ -35,7 +35,8 @@ class MainActivity : Activity() {
 
         permissionStatus.setOnClickListener { requestMic() }
         findViewById<TextView>(R.id.engineVersion).text =
-            LocalAudioEngine.status() + "\n" + SherpaRuntime.status()
+            LocalAudioEngine.status() + "\n" + SherpaRuntime.status() + "\n" +
+            LocalAudioEngine.smokeTest()
         requestMic()
 
         initLlm()

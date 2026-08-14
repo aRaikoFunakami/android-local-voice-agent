@@ -12,6 +12,7 @@ DEST=app/src/main/jniLibs/arm64-v8a
 # fork の指定 ref へ更新（DEPS が変わった場合は gclient sync を促す）
 docker exec webrtc-build sh -c "
   cd /work/src &&
+  git reset --hard -q && git clean -fdq -- local_audio &&  # 開発中の docker cp 残骸を除去
   git fetch -q origin refs/heads/local-audio &&
   git checkout -q $REF &&
   if ! git diff --quiet HEAD@{1} HEAD -- DEPS 2>/dev/null; then
