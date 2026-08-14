@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
+import com.example.localvoiceagent.audio.CapturePipeline
 import com.example.localvoiceagent.tts.AudioSink
 import com.example.localvoiceagent.tts.SupertonicTts
 import com.example.localvoiceagent.tts.WavWriter
@@ -54,6 +55,45 @@ class MainActivity : Activity() {
             synthesizeToWav(text)
         }
         intent.getStringExtra("tts")?.let { synthesizeToWav(it) }
+
+        // Capture パイプライン (Issue #13)。--ez capture true --ez dump true で自動起動
+        val captureToggle = findViewById<Button>(R.id.captureToggle)
+        captureToggle.setOnClickListener { toggleCapture() }
+        if (intent.getBooleanExtra("capture", false)) {
+            if (intent.getBooleanExtra("dump", false)) {
+                capture.enableDump(getExternalFilesDir(null)!!)
+            }
+            toggleCapture()
+        }
+        statsTicker()
+    }
+
+    private val capture = CapturePipeline()
+    private var capturing = false
+
+    private fun toggleCapture() {
+        val btn = findViewById<Button>(R.id.captureToggle)
+        if (!capturing) {
+            capturing = capture.start()
+            btn.text = if (capturing) "Capture 停止" else "Capture 開始(失敗)"
+        } else {
+            capture.stop()
+            capturing = false
+            btn.text = "Capture 開始"
+        }
+    }
+
+    private fun statsTicker() {
+        val stats = findViewById<TextView>(R.id.captureStats)
+        stats.postDelayed(object : Runnable {
+            override fun run() {
+                stats.text = "frames=${capture.framesProcessed.get()}" +
+                    " readErr=${capture.readErrors.get()}" +
+                    " procErr=${capture.processErrors.get()}" +
+                    " dumpDrop=${capture.dumpDropped.get()}"
+                stats.postDelayed(this, 1000)
+            }
+        }, 1000)
     }
 
     private val ttsEngine by lazy { SupertonicTts() }

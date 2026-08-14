@@ -48,6 +48,27 @@
             android:text="TTS" />
     </LinearLayout>
 
+    <!-- Capture パイプライン (Issue #13) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/captureToggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Capture 開始" />
+
+        <TextView
+            android:id="@+id/captureStats"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:textSize="12sp" />
+    </LinearLayout>
+
     <TextView
         android:id="@+id/llmStatus"
         android:layout_width="wrap_content"
