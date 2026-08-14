@@ -30,4 +30,6 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    // scripts/fetch_sherpa_onnx.sh で取得（バージョン・sha256 固定）
+    implementation(files("libs/sherpa-onnx-1.13.5.aar"))
 }

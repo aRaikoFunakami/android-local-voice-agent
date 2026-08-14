@@ -16,7 +16,8 @@ class MainActivity : Activity() {
         permissionStatus = findViewById(R.id.permissionStatus)
         permissionStatus.setOnClickListener { requestMic() }
         // エンジンのバージョン表示は Issue #7（.so ロードスモーク）で接続する
-        findViewById<TextView>(R.id.engineVersion).text = "engine: not loaded"
+        findViewById<TextView>(R.id.engineVersion).text =
+            "engine: not loaded\n" + SherpaRuntime.status()
         requestMic()
     }
 

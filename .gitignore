@@ -26,3 +26,6 @@ models/
 *.pcm
 *.wav
 !docs/evidence/**/*.wav
+
+# sherpa-onnx AAR は scripts/fetch_sherpa_onnx.sh で取得
+app/libs/*.aar
