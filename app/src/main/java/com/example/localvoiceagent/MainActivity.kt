@@ -73,6 +73,9 @@ class MainActivity : Activity() {
         // Render テスト (Issue #14)。--ez render true で自動起動
         findViewById<Button>(R.id.renderToggle).setOnClickListener { toggleRender() }
         toneTest = intent.getBooleanExtra("tone", false)
+        echoSim = intent.getBooleanExtra("echosim", false)
+        echoGain = intent.getFloatExtra("echogain", 0.5f)
+        echoDelayFrames = intent.getIntExtra("echodelay", 20) / 10
         if (intent.getBooleanExtra("render", false)) toggleRender()
 
         // Loopback (Issue #15): capture→APM→AudioTrack。--ez loopback true で自動起動。
@@ -94,6 +97,14 @@ class MainActivity : Activity() {
         statsTicker()
     }
 
+    // 合成 echo (Issue #16): render 再生 frame を遅延・減衰させ capture 入力へ加算する。
+    // エミュレータにはスピーカー→マイクの音響経路がないため、AEC 配管の ERLE を
+    // 机上で測るための注入器。実機評価では使わない（--ez echosim true で有効化）。
+    @Volatile private var echoSim = false
+    @Volatile private var echoGain = 0.5f
+    private var echoDelayFrames = 2  // 20ms 相当
+    private val echoRing = java.util.concurrent.ArrayBlockingQueue<ShortArray>(64)
+
     // Loopback (Issue #15): capture の clean PCM を render へ回すモニタ経路。
     // debug モードのため frame ごとの ByteArray copy を許容（容量 8 で古い frame から破棄）
     @Volatile private var loopback = false
@@ -110,7 +121,17 @@ class MainActivity : Activity() {
         }
     }
 
-    private val capture = CapturePipeline(onCleanFrame = { buf ->
+    private val capture = CapturePipeline(preProcess = { buf ->
+        if (echoSim && echoRing.size >= echoDelayFrames) {
+            val echo = echoRing.poll()
+            if (echo != null) {
+                for (i in 0 until LocalAudioEngine.FRAME_SAMPLES) {
+                    val mixed = buf.getShort(i * 2) + (echo[i] * echoGain).toInt()
+                    buf.putShort(i * 2, mixed.coerceIn(-32768, 32767).toShort())
+                }
+            }
+        }
+    }, onCleanFrame = { buf ->
         if (sttEnabled) {
             val pcm = ShortArray(LocalAudioEngine.FRAME_SAMPLES)
             buf.position(0)
@@ -137,6 +158,14 @@ class MainActivity : Activity() {
     private val render = RenderPipeline(
         engineHandle = {
             if (capturing) capture.engineHandle() else renderEngineHandle
+        },
+        onFramePlayed = { buf ->
+            if (echoSim) {
+                val copy = ShortArray(LocalAudioEngine.FRAME_SAMPLES)
+                buf.position(0)
+                for (i in copy.indices) copy[i] = buf.getShort(i * 2)
+                if (!echoRing.offer(copy)) { echoRing.poll(); echoRing.offer(copy) }
+            }
         },
         fillFrame = { buf ->
             if (ttsPlayer.fillFrame(buf)) {

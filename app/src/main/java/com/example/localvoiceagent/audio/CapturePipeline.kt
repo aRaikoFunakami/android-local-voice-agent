@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class CapturePipeline(
     private val onCleanFrame: ((ByteBuffer) -> Unit)? = null,
+    // APM 投入前の capture frame への介入（合成 echo 注入などデバッグ用途、Issue #16）
+    private val preProcess: ((ByteBuffer) -> Unit)? = null,
 ) {
     val framesProcessed = AtomicLong()
     val readErrors = AtomicLong()
@@ -90,6 +92,7 @@ class CapturePipeline(
                     readErrors.incrementAndGet()
                     continue
                 }
+                preProcess?.invoke(inBuf)
                 val r = LocalAudioEngine.processCapture(engineHandle, inBuf, outBuf)
                 if (r != 0) {
                     processErrors.incrementAndGet()

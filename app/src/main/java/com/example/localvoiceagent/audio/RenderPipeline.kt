@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicLong
 class RenderPipeline(
     private val engineHandle: () -> Long,
     private val fillFrame: (ByteBuffer) -> Boolean,
+    // 再生 frame の通知（AEC 評価の合成 echo 注入などデバッグ用途、Issue #16）
+    private val onFramePlayed: ((ByteBuffer) -> Unit)? = null,
 ) {
     val framesRendered = AtomicLong()
     val processErrors = AtomicLong()
@@ -112,6 +114,7 @@ class RenderPipeline(
                     frame.get(copy)
                     if (!dumpQueue.offer(copy)) dumpDropped.incrementAndGet()
                 }
+                onFramePlayed?.invoke(frame)
             }
             t.stop()
             t.release()
