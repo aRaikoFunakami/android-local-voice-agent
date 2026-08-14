@@ -82,6 +82,12 @@
             android:text="Render 開始" />
 
         <Button
+            android:id="@+id/sttToggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="STT 開始" />
+
+        <Button
             android:id="@+id/loopbackToggle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

@@ -81,6 +81,12 @@ class MainActivity : Activity() {
             true
         }
         if (intent.getBooleanExtra("loopback", false)) toggleLoopback()
+
+        // STT (Issue #18)。--ez stt true で capture ごと自動起動
+        findViewById<Button>(R.id.sttToggle).setOnClickListener { toggleStt() }
+        if (intent.getBooleanExtra("stt", false)) toggleStt()
+        // STT 検証用 WAV 注入: --es injectwav /data/local/tmp/xxx.wav（48kHz mono int16）
+        intent.getStringExtra("injectwav")?.let { path -> injectWav(path) }
         statsTicker()
     }
 
@@ -90,7 +96,23 @@ class MainActivity : Activity() {
     private val loopQueue = java.util.concurrent.ArrayBlockingQueue<ByteArray>(8)
     val loopDropped = java.util.concurrent.atomic.AtomicLong()
 
+    // STT (Issue #18): AEC 済み PCM を SenseVoice へ。debug モード同様 frame copy を許容
+    @Volatile private var sttEnabled = false
+    private val stt by lazy {
+        SenseVoiceRecognizer().also { r ->
+            r.onFinalResult = { text ->
+                runOnUiThread { llmResponse.append("STT: $text\n") }
+            }
+        }
+    }
+
     private val capture = CapturePipeline(onCleanFrame = { buf ->
+        if (sttEnabled) {
+            val pcm = ShortArray(LocalAudioEngine.FRAME_SAMPLES)
+            buf.position(0)
+            for (i in pcm.indices) pcm[i] = buf.getShort(i * 2)
+            stt.acceptAudio(pcm, LocalAudioEngine.SAMPLE_RATE)
+        }
         if (loopback) {
             val copy = ByteArray(LocalAudioEngine.FRAME_BYTES)
             buf.position(0); buf.get(copy)
@@ -145,6 +167,50 @@ class MainActivity : Activity() {
             }
             btn.text = "Render 開始"
         }
+    }
+
+    private fun toggleStt() {
+        val btn = findViewById<Button>(R.id.sttToggle)
+        if (!sttEnabled) {
+            if (!SenseVoiceRecognizer.modelAvailable()) {
+                llmStatus.text = "STT: モデル未配置（scripts/fetch_stt_models.sh を実行）"
+                return
+            }
+            sttEnabled = true
+            if (!capturing) toggleCapture()
+            btn.text = "STT 停止"
+        } else {
+            sttEnabled = false
+            stt.reset()
+            if (capturing && !loopback) toggleCapture()
+            btn.text = "STT 開始"
+        }
+    }
+
+    private fun injectWav(path: String) {
+        if (!SenseVoiceRecognizer.modelAvailable()) {
+            llmStatus.text = "STT: モデル未配置"
+            return
+        }
+        sttEnabled = true
+        Thread({
+            val bytes = File(path).readBytes()
+            var off = 44  // WAV ヘッダをスキップ（44 byte 固定形式前提の debug 用）
+            val frame = ShortArray(LocalAudioEngine.FRAME_SAMPLES)
+            while (off + LocalAudioEngine.FRAME_BYTES <= bytes.size) {
+                for (i in frame.indices) {
+                    val lo = bytes[off + i * 2].toInt() and 0xff
+                    val hi = bytes[off + i * 2 + 1].toInt()
+                    frame[i] = ((hi shl 8) or lo).toShort()
+                }
+                stt.acceptAudio(frame.copyOf(), LocalAudioEngine.SAMPLE_RATE)
+                off += LocalAudioEngine.FRAME_BYTES
+                Thread.sleep(10)  // 実時間ペース
+            }
+            // 末尾無音で VAD を閉じる
+            val silence = ShortArray(LocalAudioEngine.FRAME_SAMPLES)
+            repeat(100) { stt.acceptAudio(silence, LocalAudioEngine.SAMPLE_RATE); Thread.sleep(10) }
+        }, "wav-inject").start()
     }
 
     private fun toggleLoopback() {

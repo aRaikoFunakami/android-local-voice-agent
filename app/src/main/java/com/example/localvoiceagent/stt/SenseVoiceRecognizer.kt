@@ -25,7 +25,7 @@ class SenseVoiceRecognizer : SpeechRecognizer {
     companion object {
         private const val DIR = "/data/local/tmp/stt"
         private const val ASR =
-            "$DIR/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09"
+            "$DIR/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17"
 
         fun modelAvailable(): Boolean =
             File("$ASR/model.int8.onnx").canRead() &&

@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-ASR=sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09
+ASR=sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17
 ASR_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/${ASR}.tar.bz2"
 VAD=silero_vad_v5.onnx
 VAD_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/${VAD}"
