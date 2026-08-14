@@ -31,7 +31,18 @@ Microphone → AudioRecord → WebRTC APM (AEC3/NS/AGC2) → VAD → STT → LLM
 
 ## 開発ステータス
 
-Issue #1〜#23 を依存順に開発中。現状は [Issues](../../issues) を参照。
+Issue #1〜#23 の開発完了（2026-08-14）。各 Issue は worktree + PR + セルフレビュー方式で
+マージ済み。E2E 動作エビデンスは [docs/evidence/e2e-2026-08-14/](docs/evidence/e2e-2026-08-14/) を参照。
+
+**エミュレータで検証済み**: 機内モード下のフル会話ループ（マイク経路→APM/AEC3→SenseVoice STT→
+Gemma 4 E2B→supertonic-3-ja TTS→AEC 参照つき再生）、barge-in、10 分連続動作、合成 echo での
+ERLE 33.8dB。
+
+**実機での後続評価が必要な項目**（エミュレータでは原理的に検証不能）:
+- 実スピーカー→マイク音響経路での AEC 品質（手順: [docs/aec_evaluation.md](docs/aec_evaluation.md)）
+- EchoCanceller3Config の実機チューニング（注入口は実装済み）
+- audio route 変更（ヘッドセット抜挿）の再初期化
+- 実機 CPU/NPU での TTS RTF・LLM レイテンシ再測定
 
 ## ライセンス
 

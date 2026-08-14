@@ -1,0 +1,4 @@
+# ERLE 実測（Issue #16 専用セッション、2026-08-14）
+# 条件: tone render + echosim delay=20ms gain=0.5 + 実 AudioRecord、60 秒
+windows: 648/648 active, settle=5.0s
+ERLE = 33.8 dB
