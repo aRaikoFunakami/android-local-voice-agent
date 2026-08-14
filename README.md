@@ -32,3 +32,15 @@ Microphone → AudioRecord → WebRTC APM (AEC3/NS/AGC2) → VAD → STT → LLM
 ## 開発ステータス
 
 Issue #1〜#23 を依存順に開発中。現状は [Issues](../../issues) を参照。
+
+## ライセンス
+
+このリポジトリのコードは [Apache-2.0](LICENSE)。
+
+本プロジェクトは以下のサードパーティを利用する。NOTICE は実際にリンクされた dependency から機械生成する（Issue #8）:
+
+- WebRTC (BSD 3-Clause + PATENTS) — `tools_webrtc/libs/generate_licenses.py` で GN dependency graph から生成
+- sherpa-onnx (Apache-2.0)
+- LiteRT-LM (Apache-2.0) / Gemma (Gemma Terms of Use)
+
+WebRTC revision 更新時は NOTICE 差分をレビュー対象とする。
