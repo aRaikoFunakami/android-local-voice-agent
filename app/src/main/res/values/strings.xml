@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Local Voice Agent</string>
+    <string name="mic_granted">マイク権限: 取得済み</string>
+    <string name="mic_denied">マイク権限: 未取得（タップして再要求）</string>
+</resources>

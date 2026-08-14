@@ -1,0 +1,12 @@
+[versions]
+# この Mac で実績のある組み合わせ (Gradle 9.4.1 + AGP 9.2.1 + Kotlin 2.2.10)
+agp = "9.2.1"
+kotlin = "2.2.10"
+coreKtx = "1.16.0"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
