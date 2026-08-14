@@ -34,9 +34,8 @@ class MainActivity : Activity() {
         val llmInput = findViewById<EditText>(R.id.llmInput)
 
         permissionStatus.setOnClickListener { requestMic() }
-        // エンジンのバージョン表示は Issue #7（.so ロードスモーク）で接続する
         findViewById<TextView>(R.id.engineVersion).text =
-            "engine: not loaded\n" + SherpaRuntime.status()
+            LocalAudioEngine.status() + "\n" + SherpaRuntime.status()
         requestMic()
 
         initLlm()
