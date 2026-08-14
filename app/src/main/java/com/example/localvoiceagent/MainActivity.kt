@@ -12,6 +12,7 @@ import com.example.localvoiceagent.audio.RenderPipeline
 import com.example.localvoiceagent.stt.SenseVoiceRecognizer
 import com.example.localvoiceagent.tts.AudioSink
 import com.example.localvoiceagent.tts.SupertonicTts
+import com.example.localvoiceagent.tts.TtsPlayer
 import com.example.localvoiceagent.tts.WavWriter
 import java.io.File
 import java.util.concurrent.Executors
@@ -57,6 +58,8 @@ class MainActivity : Activity() {
             synthesizeToWav(text)
         }
         intent.getStringExtra("tts")?.let { synthesizeToWav(it) }
+        // TTS 再生 (Issue #20)
+        intent.getStringExtra("say")?.let { say(it) }
 
         // Capture パイプライン (Issue #13)。--ez capture true --ez dump true で自動起動
         val captureToggle = findViewById<Button>(R.id.captureToggle)
@@ -69,6 +72,7 @@ class MainActivity : Activity() {
         }
         // Render テスト (Issue #14)。--ez render true で自動起動
         findViewById<Button>(R.id.renderToggle).setOnClickListener { toggleRender() }
+        toneTest = intent.getBooleanExtra("tone", false)
         if (intent.getBooleanExtra("render", false)) toggleRender()
 
         // Loopback (Issue #15): capture→APM→AudioTrack。--ez loopback true で自動起動。
@@ -128,21 +132,27 @@ class MainActivity : Activity() {
     private var renderEngineHandle = 0L  // capture 非稼働時の専用 engine
     private var rendering = false
     private var tonePhase = 0.0
+    // 440Hz トーンは明示テスト時のみ（--ez tone true）。既定は無音 = TTS/loopback 待ち
+    private var toneTest = false
     private val render = RenderPipeline(
         engineHandle = {
             if (capturing) capture.engineHandle() else renderEngineHandle
         },
         fillFrame = { buf ->
-            if (loopback) {
+            if (ttsPlayer.fillFrame(buf)) {
+                true
+            } else if (loopback) {
                 val f = loopQueue.poll()
                 if (f != null) { buf.position(0); buf.put(f); true } else false
-            } else {
+            } else if (toneTest) {
                 val step = 2.0 * Math.PI * 440.0 / LocalAudioEngine.SAMPLE_RATE
                 for (i in 0 until LocalAudioEngine.FRAME_SAMPLES) {
                     buf.putShort(i * 2, (6000 * Math.sin(tonePhase)).toInt().toShort())
                     tonePhase += step
                 }
                 true
+            } else {
+                false  // 無音（RenderPipeline 側が silence を投入し AEC 参照は継続）
             }
         },
     )
@@ -263,6 +273,25 @@ class MainActivity : Activity() {
     }
 
     private val ttsEngine by lazy { SupertonicTts() }
+
+    // TTS render 統合 (Issue #20): TTS → 48k resample → framing → processRender + AudioTrack
+    private val ttsPlayer by lazy { TtsPlayer(ttsEngine) }
+
+    /** render 経路を確保して text を発話する。--es say "..." で自動実行 */
+    private fun say(text: String) {
+        if (!SupertonicTts.modelAvailable()) {
+            llmStatus.text = "TTS: モデル未配置"
+            return
+        }
+        if (!rendering) toggleRender()
+        val t0 = System.currentTimeMillis()
+        llmStatus.text = "TTS: 発話中…"
+        ttsPlayer.speak(text) {
+            runOnUiThread {
+                llmStatus.text = "TTS: 合成完了 ${System.currentTimeMillis() - t0}ms (queue=${ttsPlayer.queuedFrames()})"
+            }
+        }
+    }
 
     private fun synthesizeToWav(text: String) {
         if (!SupertonicTts.modelAvailable()) {
