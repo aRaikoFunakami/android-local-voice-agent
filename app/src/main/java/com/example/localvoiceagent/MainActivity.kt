@@ -8,6 +8,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import com.example.localvoiceagent.audio.CapturePipeline
+import com.example.localvoiceagent.audio.RenderPipeline
 import com.example.localvoiceagent.tts.AudioSink
 import com.example.localvoiceagent.tts.SupertonicTts
 import com.example.localvoiceagent.tts.WavWriter
@@ -65,11 +66,54 @@ class MainActivity : Activity() {
             }
             toggleCapture()
         }
+        // Render テスト (Issue #14)。--ez render true で自動起動
+        findViewById<Button>(R.id.renderToggle).setOnClickListener { toggleRender() }
+        if (intent.getBooleanExtra("render", false)) toggleRender()
         statsTicker()
     }
 
     private val capture = CapturePipeline()
     private var capturing = false
+
+    // Render テスト (Issue #14): 440Hz トーンを AEC 参照経由で再生
+    private var renderEngineHandle = 0L  // capture 非稼働時の専用 engine
+    private var rendering = false
+    private var tonePhase = 0.0
+    private val render = RenderPipeline(
+        engineHandle = {
+            if (capturing) capture.engineHandle() else renderEngineHandle
+        },
+        fillFrame = { buf ->
+            val step = 2.0 * Math.PI * 440.0 / LocalAudioEngine.SAMPLE_RATE
+            for (i in 0 until LocalAudioEngine.FRAME_SAMPLES) {
+                buf.putShort(i * 2, (6000 * Math.sin(tonePhase)).toInt().toShort())
+                tonePhase += step
+            }
+            true
+        },
+    )
+
+    private fun toggleRender() {
+        val btn = findViewById<Button>(R.id.renderToggle)
+        if (!rendering) {
+            if (!capturing && renderEngineHandle == 0L) {
+                renderEngineHandle = LocalAudioEngine.create()
+            }
+            if (intent.getBooleanExtra("dump", false)) {
+                render.enableDump(getExternalFilesDir(null)!!)
+            }
+            rendering = render.start()
+            btn.text = if (rendering) "Render 停止" else "Render 開始(失敗)"
+        } else {
+            render.stop()
+            rendering = false
+            if (renderEngineHandle != 0L) {
+                LocalAudioEngine.destroy(renderEngineHandle)
+                renderEngineHandle = 0L
+            }
+            btn.text = "Render 開始"
+        }
+    }
 
     private fun toggleCapture() {
         val btn = findViewById<Button>(R.id.captureToggle)
@@ -91,6 +135,11 @@ class MainActivity : Activity() {
                     " readErr=${capture.readErrors.get()}" +
                     " procErr=${capture.processErrors.get()}" +
                     " dumpDrop=${capture.dumpDropped.get()}"
+                findViewById<TextView>(R.id.renderStats).text =
+                    "frames=${render.framesRendered.get()}" +
+                    " underrun=${render.underrunCount()}" +
+                    " procErr=${render.processErrors.get()}" +
+                    " writeErr=${render.writeErrors.get()}"
                 stats.postDelayed(this, 1000)
             }
         }, 1000)
