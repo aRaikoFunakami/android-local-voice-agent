@@ -89,6 +89,8 @@ Extended Controls（または `⌘;`）を開いて、以下 2 箇所を設定�
    Configuration の **「Virtual microphone attached」にチェック**
    （ヘッドセット扱いの仮想マイクを実際にデバイスへ接続した状態にする）
 
+![Extended Controls の Microphone 設定（動作確認済み構成）](docs/images/emulator_mic_settings.png)
+
 両方 ON/チェック済みでも、さらに **macOS 側でマイクのプライバシー許可**
 （システム設定 → プライバシーとセキュリティ → マイク → Android Studio / エミュレータ本体に許可）
 が必要。どちらか一方でも欠けていると `coreaudio: Could not initialize record` で仮想マイクが
