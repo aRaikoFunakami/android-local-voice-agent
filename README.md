@@ -41,8 +41,11 @@ Microphone → AudioRecord → WebRTC APM (AEC3/NS/AGC2) → VAD → STT → LLM
 ./scripts/fetch_sherpa_onnx.sh
 
 # 2) WebRTC ネイティブエンジン（.so、gitignore対象）
-#    scripts/build_env.sh でコンテナ起動済みが前提（詳細は docs/local-audio-engine-plan.md）
-./scripts/build_webrtc_android.sh
+#    ビルド済みを GitHub Releases から取得する（推奨。ビルド環境不要）
+./scripts/fetch_local_audio_engine.sh
+#    local_audio 自体のソースを変更した場合のみ自前ビルドする
+#    （scripts/build_env.sh でコンテナ起動済みが前提。詳細は docs/local-audio-engine-plan.md）
+# ./scripts/build_webrtc_android.sh
 
 # 3) local.properties（Android Studio が自動生成しない場合）
 echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties
@@ -50,6 +53,15 @@ echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties
 
 Android Studio で開く場合、上記 1)・2) を先に済ませてから **Sync Project with Gradle Files** すること。
 `.aar`/`.so` が無いまま sync すると `Null extracted folder for artifact...` のようなエラーになる。
+
+`fetch_local_audio_engine.sh` の中身:
+
+- 取得元: [aRaikoFunakami/libwebrtc の Release `local-audio-7300`](https://github.com/aRaikoFunakami/libwebrtc/releases/tag/local-audio-7300)（`local_audio/` のビルド成果物、curlで取得後SHA256を検証）
+- 配置先: `app/src/main/jniLibs/arm64-v8a/liblocal_audio_engine.so`（Android Gradle Pluginが`.so`を拾う既定ディレクトリ。gitignore対象なのでリポジトリには含まれない）
+- ビルド設定: `app/build.gradle.kts` の `defaultConfig.ndk.abiFilters += "arm64-v8a"` で対象ABIをarm64-v8aに限定済み（コミット済みなので追加設定は不要）
+- `.so`が上記パスに置かれていれば、`./gradlew assembleDebug` またはAndroid StudioのRunで他のネイティブライブラリと同様にAPKへ組み込まれる
+
+`local-audio-7300` は `aRaikoFunakami/libwebrtc` の `local-audio` ブランチが upstream `branch-heads/7300` を起点にしていることに対応するタグ名。WebRTC revision更新時はタグ名の数字も変わる（[local_audio/README.md §4](https://github.com/aRaikoFunakami/libwebrtc/blob/local-audio/local_audio/README.md)参照）。
 
 会話ループ（LLM/STT/TTS）まで試すには、モデルも取得して端末へ push する:
 
