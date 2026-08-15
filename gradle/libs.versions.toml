@@ -1,6 +1,6 @@
 [versions]
 # この Mac で実績のある組み合わせ (Gradle 9.4.1 + AGP 9.2.1 + Kotlin 2.2.10)
-agp = "9.2.1"
+agp = "9.3.1"
 kotlin = "2.2.10"
 coreKtx = "1.16.0"
 litertlm = "0.16.0"
