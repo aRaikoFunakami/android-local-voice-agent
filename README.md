@@ -80,12 +80,21 @@ Android Studio で開く場合、上記 1)・2) を先に済ませてから **Sy
 
 ### 3. エミュレータでテストする場合の注意（マイク）
 
-**Android Studio の Device Manager 経由でエミュレータを起動し、Extended Controls →
-Microphone → 「Enable Host Microphone Access」を ON にすること。** さらに macOS 側で
-Terminal / Android Studio にマイクのプライバシー許可（システム設定 → プライバシーとセキュリティ →
-マイク）が必要。これが欠けていると `coreaudio: Could not initialize record` で仮想マイクが
-無音のまま固まる（コマンドラインの `emulator` を直接ヘッドレス起動した場合もこの設定は反映されない
-ことがあるため、まず Device Manager から GUI 経由で一度起動して確認するのが確実）。
+**Android Studio の Device Manager 経由でエミュレータを起動し、ツールバーの「…」→
+Extended Controls（または `⌘;`）を開いて、以下 2 箇所を設定すること:**
+
+1. **Microphone パネル → 「Enable Host Microphone Access」を ON**
+   （Mac の実マイク入力を仮想マイクへパススルーする設定）
+2. 同パネル下部の **Virtual Headset → 「Simulate Insert Headset」を ON**、
+   Configuration の **「Virtual microphone attached」にチェック**
+   （ヘッドセット扱いの仮想マイクを実際にデバイスへ接続した状態にする）
+
+両方 ON/チェック済みでも、さらに **macOS 側でマイクのプライバシー許可**
+（システム設定 → プライバシーとセキュリティ → マイク → Android Studio / エミュレータ本体に許可）
+が必要。どちらか一方でも欠けていると `coreaudio: Could not initialize record` で仮想マイクが
+無音のまま固まる。コマンドラインの `emulator` を直接ヘッドレス起動した場合、上記 Extended Controls
+の設定自体を変更する手段がなく無音になりがちなので、**まず Device Manager から GUI 経由で
+起動し、この画面で設定してから使うこと。**
 
 動作確認方法:
 ```bash
