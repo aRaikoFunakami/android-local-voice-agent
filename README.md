@@ -41,8 +41,11 @@ Microphone → AudioRecord → WebRTC APM (AEC3/NS/AGC2) → VAD → STT → LLM
 ./scripts/fetch_sherpa_onnx.sh
 
 # 2) WebRTC ネイティブエンジン（.so、gitignore対象）
-#    scripts/build_env.sh でコンテナ起動済みが前提（詳細は docs/local-audio-engine-plan.md）
-./scripts/build_webrtc_android.sh
+#    ビルド済みを GitHub Releases から取得する（推奨。ビルド環境不要）
+./scripts/fetch_local_audio_engine.sh
+#    local_audio 自体のソースを変更した場合のみ自前ビルドする
+#    （scripts/build_env.sh でコンテナ起動済みが前提。詳細は docs/local-audio-engine-plan.md）
+# ./scripts/build_webrtc_android.sh
 
 # 3) local.properties（Android Studio が自動生成しない場合）
 echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties
